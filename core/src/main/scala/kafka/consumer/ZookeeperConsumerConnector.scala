@@ -17,7 +17,7 @@
 
 package kafka.consumer
 
-import java.net.InetAddress
+import java.net.{InetAddress, NetworkInterface, UnknownHostException}
 import java.util.UUID
 import java.util.concurrent._
 import java.util.concurrent.atomic._
@@ -110,14 +110,51 @@ private[kafka] class ZookeeperConsumerConnector(val config: ConsumerConfig,
 
   val consumerIdString = {
     var consumerUuid : String = null
+    var hostname : String = "localhost"
     config.consumerId match {
       case Some(consumerId) // for testing only
       => consumerUuid = consumerId
       case None // generate unique consumerId automatically
       => val uuid = UUID.randomUUID()
-      consumerUuid = "%s-%d-%s".format(
-        InetAddress.getLocalHost.getHostName, System.currentTimeMillis,
-        uuid.getMostSignificantBits().toHexString.substring(0,8))
+        try {
+          hostname = InetAddress.getLocalHost.getHostName
+        }
+        catch {
+          case eUH: UnknownHostException =>
+            //KAFKA-1615: catch the UnknownHostException and use IP instead
+            //for ID Generation
+            warn("Unknown Host Exception caught while generating ID",eUH)
+
+            val interfaces = NetworkInterface.getNetworkInterfaces
+
+            while (interfaces.hasMoreElements){
+              val nic = interfaces.nextElement
+              val addresses = nic.getInetAddresses
+              while(hostname == null && addresses.hasMoreElements){
+                val address = addresses.nextElement
+                if (!address.isLoopbackAddress){
+                  hostname = address.getHostAddress
+
+                }
+              }
+            }
+
+
+
+          case e: Throwable =>
+            //log other errors caught
+          error("Error while generating consumerId",e)
+
+        } finally {
+
+          consumerUuid = "%s-%d-%s".format(
+            hostname, System.currentTimeMillis,
+            uuid.getMostSignificantBits().toHexString.substring(0, 8))
+        }
+
+
+
+
     }
     config.groupId + "_" + consumerUuid
   }

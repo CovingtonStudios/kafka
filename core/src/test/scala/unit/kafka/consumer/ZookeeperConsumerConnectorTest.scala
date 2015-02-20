@@ -17,19 +17,21 @@
 
 package kafka.consumer
 
+import java.util.Collections
+
 import junit.framework.Assert._
+import kafka.common.MessageStreamsExistException
 import kafka.integration.KafkaServerTestHarness
-import kafka.server._
-import scala.collection._
-import org.scalatest.junit.JUnit3Suite
 import kafka.message._
 import kafka.serializer._
-import org.I0Itec.zkclient.ZkClient
-import kafka.utils._
-import java.util.Collections
-import org.apache.log4j.{Logger, Level}
+import kafka.server._
 import kafka.utils.TestUtils._
-import kafka.common.MessageStreamsExistException
+import kafka.utils._
+import org.I0Itec.zkclient.ZkClient
+import org.apache.log4j.{Level, Logger}
+import org.scalatest.junit.JUnit3Suite
+
+import scala.collection._
 
 class ZookeeperConsumerConnectorTest extends JUnit3Suite with KafkaServerTestHarness with Logging {
 
@@ -60,7 +62,20 @@ class ZookeeperConsumerConnectorTest extends JUnit3Suite with KafkaServerTestHar
   override def tearDown() {
     super.tearDown()
   }
+  def testUnresolvedHost(): Unit ={
+    val requestHandlerLogger = Logger.getLogger(classOf[KafkaRequestHandler])
+    requestHandlerLogger.setLevel(Level.FATAL)
 
+    val consumerConfig100 = new ConsumerConfig(
+      TestUtils.createConsumerProperties(zkConnect, group, consumer0)) {
+      override val consumerTimeoutMs = 200
+      override val consumerId = None
+    }
+
+
+
+    val zkConsumerConnector100 = new ZookeeperConsumerConnector(consumerConfig100, true)
+  }
   def testBasic() {
     val requestHandlerLogger = Logger.getLogger(classOf[KafkaRequestHandler])
     requestHandlerLogger.setLevel(Level.FATAL)
@@ -348,7 +363,7 @@ class ZookeeperConsumerConnectorTest extends JUnit3Suite with KafkaServerTestHar
     val children = zkClient.getChildren(path)
     Collections.sort(children)
     val childrenAsSeq : Seq[java.lang.String] = {
-      import JavaConversions._
+      import scala.collection.JavaConversions._
       children.toSeq
     }
     childrenAsSeq.map(partition =>
