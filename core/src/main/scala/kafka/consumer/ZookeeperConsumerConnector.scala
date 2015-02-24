@@ -130,7 +130,7 @@ private[kafka] class ZookeeperConsumerConnector(val config: ConsumerConfig,
             while (interfaces.hasMoreElements){
               val nic = interfaces.nextElement
               val addresses = nic.getInetAddresses
-              while(hostname == null && addresses.hasMoreElements){
+              while(addresses.hasMoreElements){
                 val address = addresses.nextElement
                 if (!address.isLoopbackAddress){
                   hostname = address.getHostAddress
